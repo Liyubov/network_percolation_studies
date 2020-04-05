@@ -19,7 +19,6 @@ removed 60 unconnected nodes
 Total number of nodes after processing: 479  
 Total number of links after processing: 540  
 
-
-![Belgium_trains_processing](https://github.com/Liyubov/network_percolation_studies/figures/1_Belgium_trains_analytics.png)
+![Belgium_trains_processing](/figures/1_Belgium_trains_analytics.png)
 
 ### Results
