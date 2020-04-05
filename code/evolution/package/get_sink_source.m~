@@ -1,0 +1,315 @@
+function [in, out, assigned_distance] = get_sink_source(adjm, distance, is_mex)
+%check the nodes at distance 'distance' from node 'in'.
+%This can be time consuming! ==> need a C/C++ implementation?
+%also see: 'Breadth-first_search'
+
+%randomize vector at the initial stage:
+R = randperm(size(adjm,1));
+
+if(is_mex)
+    %****** SET INFLOW AND OUTFLOW NODES, separated by 'distance' nodes.
+    if(distance.dswitch == 1) %then use 'min_distance'
+        %R vector, adjm matrix, distance.distance == scalar
+        R = int32(R); %convert to int32 type for MEX file
+        [in, out, assigned_distance] = assign_idx(R, adjm, distance.distance);
+        keyboard;
+    else
+        %not implemented in C yet, thus use MATLAB instead:
+        [in, out] = assign_absolute_distance(R, adjm, distance.distance);
+        assigned_distance = distance.distance;
+    end
+else
+    %****** SET INFLOW AND OUTFLOW NODES, separated by 'distance' nodes.
+    if(distance.dswitch == 1) %then use 'min_distance'
+        [in, out, assigned_distance] = assign_min_distance(R, adjm, distance.distance);
+    else
+        [in, out] = assign_absolute_distance(R, adjm, distance.distance);
+        assigned_distance = distance.distance;
+    end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% NESTED FUNCTIONS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [in, out, dis_found] = assign_min_distance(R, adjm, distance)
+%Returns the inflow and outflow nodes that are separated by AT LEAST 'distance'
+%nodes.
+
+%First, assign inflow and outflow nodes at corresponding distance.
+out = 0;
+for i=1:size(R,2)-1
+    in = R(i); %assign this inflow node
+    for j=1:size(R,2)-1
+        if(j ~= i)
+            tpout = R(j); %assign this outflow node.
+            %then check for distance between 'in' and 'out':
+            d = get_distance(in, tpout, adjm);
+            
+            if(d >= distance)
+                %then we found it! exit!
+                out = tpout;
+                dis_found = d;
+                return;
+            end
+        end
+    end
+end
+
+if(out == 0)
+    %warning(sprintf('Was not able to find the outflow (sink) node.\nRequested distance is to high?'));
+    dis_found = -1; %throw an error here
+end
+
+
+%returns the (minimal) distance between in and out:
+function d = get_distance(in, out, adjm)
+%d = dijkstra(adjm, in, out); %this is SUPER slow!!!! (don't use, except for testing and comparison purposes)
+d = find_dis(adjm, in, out); %this is SUPER fast!!!!
+
+
+%*** nested function ***
+%returns the outflow node according to the inflow one,
+%will returns the distance between 'in' and 'out' nodes.
+function cur_dis = find_dis(adjm, in, out)
+%Start from inflow node then check existing paths:
+idx = find(adjm(in,:));
+
+%(Arbitrary) prealloc (for speed purposes):
+visited = zeros(size(adjm,1),1);
+
+%append original idx (distance = 0)
+s = size(nonzeros(visited),1);
+visited(s+1:s+size(idx,2)) = idx; %append: distance 0
+
+n = size(adjm,1);
+
+%check for out in distance 0:
+if(any(nonzeros(visited) == out))
+    cur_dis = 1; %bound limit, it should 0 instead.
+    return
+end
+
+%Check for each entry of idx:
+cur_dis = 1;
+is_found = 0;
+k = 1;
+while(is_found == 0)
+    %'idx' will grow at each iteration in the loop, capturing more and more
+    %nodes until it matches requested distance:
+    
+    %Perform a new step ahead:
+    %For each new entry, append the existing path: 
+    idx = unique(ceil(find(adjm(idx,:)) / numel(idx)));
+    
+    cur_dis = cur_dis +1;
+
+    if(any(nonzeros(idx) == out))
+        %we found it!
+        is_found = 1;
+    else
+        %append to visited nodes:
+        s = size(nonzeros(visited),1);
+        visited(s+1:s+size(idx,1)) = idx;
+
+        if(k > n)
+            %we should have visited all the nodes at least once, but we
+            %can't. It means that the graph is disconnected and that there
+            %is no path between in and out. too bad. Thus we set 'cur_dis'
+            %to inf:
+            cur_dis = -inf;
+            break;
+        end
+    end
+    k=k+1;
+end
+
+
+
+function [in, out] = assign_absolute_distance(R, adjm, distance)
+%returns the inflow and outflow nodes that are separated by 'distance'
+%nodes.
+%WARNING: DISCONNECTED GRAPH ARE NOT IMPLEMENTED YET!!!!
+
+%First, assign inflow and outflow nodes at corresponding distance.
+if(distance == 0) %random assignment of inflow and outflow nodes:
+    in = R(1);    %index of inflow node
+    out = R(2);   %index of outflow node
+else
+    out = -1; 
+    for i=1:size(R,2)
+        in = R(i); %assign this inflow node
+        %for all other nodes, try to find a node at the corresponding
+        %distance:
+        out = get_outflow(in, adjm, distance);
+        if(out > 0)
+            %we found an inflow node at given 'distance' value, then we
+            %exit.
+            break; 
+        end
+    end
+    
+    if(out == 0)
+        error('Was not able to find the outflow (sink) node.\nRequested distance is to high?');
+    end
+end
+
+
+%*** nested function ***
+%returns the outflow node according to the inflow one,
+%will returns 0 is the node is not found (you may decide to lower the
+%requested distance).
+function out = get_outflow(in, adjm, distance)
+%Start from inflow node then check existing paths:
+idx = find(adjm(in,:));
+
+%(Arbitrary) prealloc (for speed purposes):
+visited = zeros(size(adjm,1),1);
+
+%append original idx (distance = 0)
+s = size(nonzeros(visited),1);
+visited(s+1:s+size(idx,2)) = idx; %append: distance 0
+
+%Check for each entry of idx:
+cur_dis = 1;
+while(cur_dis < distance)
+    %'idx' will grow at each iteration in the loop, capturing more and more
+    %nodes until it match requested distance:
+    
+    %Perform a new step ahead:
+    %For each new entry, append the existing path: 
+    %idx = find(netw.adjm(idx,:));
+    idx = unique(ceil(find(adjm(idx,:)) / numel(idx)));
+
+    %append to visited nodes:
+    s = size(nonzeros(visited),1);
+    
+    cur_dis = cur_dis +1;
+    
+    if(cur_dis == distance)
+        visited = unique(nonzeros(visited)); %get previous nodes
+        nodes = setdiff(idx, visited); %nodes at 'distance'
+        if(isempty(nodes))
+            out = 0; %did not find the distance, thus returns -1
+        else
+            out = nodes(randi(size(nodes,1))); %pick a random one
+        end
+    else
+        visited(s+1:s+size(idx,1)) = idx;
+    end
+end
+
+%using triu before outflow node is faster? (not sure: triu() is quite slow)
+
+
+%***** Testing dijkstra:
+% for i=1:size(adjm,1)
+%     sp(i) = dijkstra(adjm, in, i);
+% end
+%to compare both algorithm then use: [nodes, find(sp==3)'];
+%it gives simulare results, the above one is way faster, ie, for one
+%execution on a 40*40 network (adjm = 1600*1600):
+%speed above is: 0.009880 seconds.
+%(speed for a 15*15 is 0.008855 seconds, roughly the same).
+%ONE execution of dijkstra is: 2.424735 (40*40) (or 
+
+function [spcost] = dijkstra(costmatrix, s, d)
+% uses sparse matrix and ingores paths to save time and memory for large networks
+% calculates totals cost only
+
+% This is an implementation of the dijkstra�s algorithm, which finds the
+% minimal cost path between two nodes. It�s supoussed to solve the problem on
+% possitive weighted instances.
+
+% inputs:
+% n*n costmatrix, can be sparse for nonexisting links
+% n: the number of nodes in the network;
+% s: source node index;
+% d: destination node index;
+
+%For information about this algorithm visit:
+%http://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
+
+%This implementatios is inspired by the Xiaodong Wang's implememtation of
+%the dijkstra's algorithm, available at
+%http://www.mathworks.com/matlabcentral/fileexchange
+%file ID 5550
+
+%Author: Jorge Ignacio Barrera Alviar. April/2007
+%Edited Dirk Stelder September/2013
+
+%I think you could speed up Dirk Stelder's solution by replacing the first for 
+%loop (between "candidate=[];' and "[u_index u]=min(candidate);")
+%by the statement
+%[u_index u] = min(1 ./ (S==0) .* dist);
+
+n=size(costmatrix,1);
+S(1:n) = 0; % vector, set of visited vectors
+dist(1:n) = inf; % it stores the shortest distance between the source node and any other node;
+prev(1:n) = n+1; % Previous node, informs about the best previous node known to reach each network node
+
+dist(s) = 0;
+
+kkk = 1; %counter to test for a link between source and sink
+
+while sum(S)~=n
+    candidate=[];
+    for i=1:n
+        if S(i)==0
+            candidate=[candidate dist(i)];
+        else
+            candidate=[candidate inf];
+        end
+    end
+    %can be replaced by: 
+    %[u_index u] = min(1 ./ (S==0) .* dist);
+    
+    [u_index u]=min(candidate);
+    S(u)=1;
+    for i=1:n
+        if costmatrix(u,i)>0 % ignore non-existing links (=zero in sparse matrices) to save time and memory
+            if(dist(u)+costmatrix(u,i))<dist(i)
+                dist(i)=dist(u)+costmatrix(u,i);
+                prev(i)=u;
+            end
+        end
+    end
+    
+    kkk = kkk+1;
+    if(kkk > n+1)
+        %Error source and sink arent connected...
+        %Quit!
+        d = -inf;
+        break;
+    end
+end
+
+if(d == -inf)
+    spcost = d;
+else
+    spcost = dist(d);
+end
+
+
+
+
+
+% %Check for each entry of idx:
+% cur_dis = 0;
+% while(cur_dis < distance)
+%     %'idx' will grow at each iteration in the loop, capturing more and more
+%     %nodes until it match requested distance:
+%     
+%     %Perform a new step ahead:
+%     %For each new entry, append the existing path: 
+%     %idx = find(netw.adjm(idx,:));
+%     idx = unique(ceil(find(adjm(idx,:)) / numel(idx)));
+%     cur_dis = cur_dis +1;
+% end
+% 
+% %Pick a random node among the possible ones, and excluding 'in' (triangule for instance):
+% %BUT does not take into account the triangle possibilities (major flaw).
+% out = in;
+% while(out == in) %prevent selecting 'in'...
+%     out = idx(randi(size(idx,1)),:);
+% end
+

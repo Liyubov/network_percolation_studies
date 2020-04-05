@@ -1,0 +1,7 @@
+Download the vpi toolbox.
+
+Unzip it.
+
+Put (ONLY) the top directory on your search path.
+Do not put the @vpi directory on your search path.
+Do not move any of the files in these directories from their location when they were unzipped.
