@@ -12,12 +12,19 @@
 ## Belgium Trains
 ### Pre-processing:
 Total number of nodes before processing: 644
+
 Total number of links before processing: 645
+
 removed 0 links (self-loops)
+
 removed 105 (isolated) nodes
+
 removed 60 unconnected nodes
+
 Total number of nodes after processing: 479
+
 Total number of links after processing: 540
+
 
 ![Belgium_trains_processing](https://github.com/Liyubov/network_percolation_studies/figures/1_Belgium_trains_analytics.png)
 
