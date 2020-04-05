@@ -1,6 +1,6 @@
 # Network percolation studies
 
-## Process for using the code
+## How to use the code
 1. put the data file in a local repository
 2. in the file *code/main_liu.m*: locate the filename for each dataset. Example: filename = '../Belgium_Trains/networkAdjMatrBelgiumTrains.txt';
 3. set appropriate settings: number of simulations, number of threads, etc.
