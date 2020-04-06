@@ -23,4 +23,5 @@ Total number of links after processing: 540
 
 ### Results
 Evolution results for the Random and Pseudo-Darwinian evolutions (1000 simulations). Bold lines represent the average value at each time step.
-![Belgium_trains_evolution](/figures/1_Belgium_trains_evolution.png)
+
+![Belgium_trains_evolution](/figures/1_Belgium_trains_evolutions.png)
