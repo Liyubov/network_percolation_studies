@@ -9,7 +9,10 @@
 5. open *main.m* in the */data_network_figures* folder and specify the #filename in *FIGURE_2(#filename)*; for locating your results. Example:FIGURE_2('results--23-Mar-2020-99-Belgium trains.mat');
 6. figures are produced in the *figures/* folder
 
-## Belgium Trains
+## Adjacency matrices 
+
+We take various sources of data from http://networkrepository.com/ and generate networks ourselves.
+
 ### Pre-processing:
 Total number of nodes before processing: 644  
 Total number of links before processing: 645  
